@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyber-Bot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg: #0E1620;
+    --panel: #131E29;
+    --panel-2: #1A2733;
+    --trace: #223244;
+    --amber: #E8A33D;
+    --teal: #4FD1C5;
+    --text: #E7EDF3;
+    --muted: #8CA0B3;
+    --danger: #E8735F;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(79,209,197,0.08), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(232,163,61,0.06), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* subtle circuit trace background */
+  .traces{
+    position:fixed; inset:0; pointer-events:none; opacity:0.35; z-index:0;
+  }
+
+  header{
+    position:relative; z-index:1;
+    display:flex; align-items:center; gap:14px;
+    padding:16px 22px;
+    border-bottom:1px solid var(--trace);
+    background:linear-gradient(180deg, rgba(19,30,41,0.9), rgba(19,30,41,0.6));
+    backdrop-filter:blur(6px);
+  }
+
+  .node{
+    width:38px;height:38px;border-radius:10px;
+    background:var(--panel-2);
+    border:1px solid var(--trace);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+    position:relative;
+    flex-shrink:0;
+  }
+  .node::after{
+    content:'';
+    position:absolute; width:6px; height:6px; border-radius:50%;
+    background:var(--teal);
+    top:-3px; right:-3px;
+    box-shadow:0 0 8px var(--teal);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:0.4; transform:scale(0.75);}
+  }
+
+  .brand h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:17px; font-weight:600; margin:0;
+    letter-spacing:0.2px;
+  }
+  .brand p{
+    margin:2px 0 0; font-size:12.5px; color:var(--muted);
+  }
+
+  .lang-select{
+    margin-left:auto;
+    display:flex; gap:6px;
+  }
+  .lang-select button{
+    background:var(--panel-2);
+    border:1px solid var(--trace);
+    color:var(--muted);
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:7px;
+    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+    transition:border-color 0.15s, color 0.15s;
+  }
+  .lang-select button:hover{ color:var(--text); border-color:var(--teal); }
+  .lang-select button.active{ color:var(--bg); background:var(--teal); border-color:var(--teal); font-weight:500; }
+
+  main{
+    flex:1; overflow-y:auto; position:relative; z-index:1;
+    padding:24px 0 12px;
+  }
+
+  .thread{
+    max-width:760px; margin:0 auto; padding:0 20px;
+    display:flex; flex-direction:column; gap:18px;
+  }
+
+  .empty{
+    max-width:520px; margin:60px auto; text-align:center; color:var(--muted);
+  }
+  .empty .node{ margin:0 auto 18px; width:52px; height:52px; font-size:24px; }
+  .empty h2{
+    font-family:'Space Grotesk', sans-serif; color:var(--text);
+    font-size:20px; margin:0 0 8px; font-weight:600;
+  }
+  .empty p{ font-size:14px; line-height:1.6; margin:0 0 20px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .chip{
+    background:var(--panel-2); border:1px solid var(--trace); color:var(--text);
+    font-size:12.5px; padding:8px 13px; border-radius:8px; cursor:pointer;
+    font-family:'Inter', sans-serif; transition:border-color 0.15s, transform 0.1s;
+  }
+  .chip:hover{ border-color:var(--amber); transform:translateY(-1px); }
+
+  .msg{ display:flex; gap:12px; align-items:flex-start; }
+  .msg.user{ flex-direction:row-reverse; }
+
+  .avatar{
+    width:30px; height:30px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; margin-top:2px;
+    background:var(--panel-2); border:1px solid var(--trace);
+  }
+  .msg.bot .avatar{ border-color:var(--teal); }
+  .msg.user .avatar{ border-color:var(--amber); background:rgba(232,163,61,0.1); }
+
+  .bubble{
+    max-width:75%;
+    padding:12px 15px;
+    border-radius:12px;
+    font-size:14.5px;
+    line-height:1.6;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+  }
+  .msg.bot .bubble{
+    background:var(--panel);
+    border:1px solid var(--trace);
+    border-top-left-radius:3px;
+  }
+  .msg.user .bubble{
+    background:linear-gradient(135deg, rgba(232,163,61,0.16), rgba(232,163,61,0.08));
+    border:1px solid rgba(232,163,61,0.35);
+    border-top-right-radius:3px;
+  }
+  .bubble code{
+    font-family:'IBM Plex Mono', monospace;
+    background:rgba(0,0,0,0.28);
+    padding:1px 5px;
+    border-radius:4px;
+    font-size:13px;
+  }
+  .bubble pre{
+    font-family:'IBM Plex Mono', monospace;
+    background:rgba(0,0,0,0.32);
+    border:1px solid var(--trace);
+    padding:10px 12px;
+    border-radius:8px;
+    overflow-x:auto;
+    font-size:13px;
+    margin:8px 0;
+  }
+  .bubble pre code{ background:none; padding:0; }
+
+  .typing{ display:flex; gap:4px; padding:4px 0; }
+  .typing span{
+    width:6px; height:6px; border-radius:50%; background:var(--teal);
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){ animation-delay:0.15s; }
+  .typing span:nth-child(3){ animation-delay:0.3s; }
+  @keyframes blink{ 0%,80%,100%{opacity:0.25;} 40%{opacity:1;} }
+
+  .error-bubble{
+    color:var(--danger);
+    border-color:rgba(232,115,95,0.4) !important;
+    background:rgba(232,115,95,0.08) !important;
+  }
+
+  footer{
+    position:relative; z-index:1;
+    padding:16px 20px 20px;
+    border-top:1px solid var(--trace);
+    background:linear-gradient(0deg, rgba(19,30,41,0.9), rgba(19,30,41,0.5));
+  }
+  .composer{
+    max-width:760px; margin:0 auto;
+    display:flex; align-items:flex-end; gap:10px;
+    background:var(--panel-2);
+    border:1px solid var(--trace);
+    border-radius:14px;
+    padding:8px 8px 8px 16px;
+    transition:border-color 0.15s;
+  }
+  .composer:focus-within{ border-color:var(--teal); }
+  .composer textarea{
+    flex:1; resize:none; background:none; border:none; outline:none;
+    color:var(--text); font-family:'Inter', sans-serif; font-size:14.5px;
+    line-height:1.5; max-height:140px; padding:8px 0;
+  }
+  .composer textarea::placeholder{ color:var(--muted); }
+  .send-btn{
+    width:38px; height:38px; border-radius:10px; flex-shrink:0;
+    background:var(--amber); border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--bg); font-size:16px;
+    transition:opacity 0.15s, transform 0.1s;
+  }
+  .send-btn:hover{ transform:translateY(-1px); }
+  .send-btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; }
+
+  .footnote{
+    max-width:760px; margin:8px auto 0; text-align:center;
+    font-size:11px; color:var(--muted); font-family:'IBM Plex Mono', monospace;
+  }
+
+  main::-webkit-scrollbar{ width:8px; }
+  main::-webkit-scrollbar-thumb{ background:var(--trace); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<svg class="traces" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#1A2733" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+</svg>
+
+<header>
+  <div class="node">🤖</div>
+  <div class="brand">
+    <h1>Cyber-Bot</h1>
+    <p id="tagline">Ton compagnon intelligent pour la tech et le quotidien</p>
+  </div>
+  <div class="lang-select" id="langSelect">
+    <button data-lang="fr" class="active">FR</button>
+    <button data-lang="en">EN</button>
+    <button data-lang="ar">AR</button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="thread" id="thread">
+    <div class="empty" id="emptyState">
+      <div class="node">⚡</div>
+      <h2 id="emptyTitle">Bonjour ! Je suis Cyber-Bot 🤖</h2>
+      <p id="emptySub">Pose-moi une question sur la programmation, l'électronique, les sciences, ou n'importe quel sujet du quotidien.</p>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="composer">
+    <textarea id="input" rows="1" placeholder="Écris ton message..."></textarea>
+    <button class="send-btn" id="sendBtn">➤</button>
+  </div>
+  <div class="footnote" id="footnote">Cyber-Bot peut faire des erreurs. Vérifie les informations importantes.</div>
+</footer>
+
+<script>
+const SYSTEM_PROMPT = `You are Cyber-Bot, a friendly, intelligent, and helpful public AI assistant.
+Your mission is to help everyone with everyday questions, learning, technology, programming, science, productivity, entertainment, and general knowledge.
+
+PERSONALITY: Friendly and welcoming, intelligent and curious, clear and easy to understand, patient with beginners, professional but not overly formal, supportive and respectful. Occasionally use emojis when appropriate (🤖✨) but don't overdo it.
+
+LANGUAGES: You communicate naturally in English, French, Modern Standard Arabic, and Tunisian Arabic (Derja) when appropriate. Always respond in the same language the user writes in, unless they ask you to switch.
+
+COMMUNICATION STYLE:
+- Give clear and useful answers.
+- Adapt the complexity of your answer to the user's level.
+- For beginners, explain things step by step.
+- For technical questions, provide examples when useful.
+- For programming questions, provide clean, well-commented, understandable code.
+- Use headings and bullet points when they improve readability.
+- Avoid unnecessarily long answers unless the user asks for detail.
+
+TOPICS: Programming and coding, AI, electronics and electrical engineering, technology, education, science, movies and entertainment, gaming, writing, productivity, general knowledge, creative projects, everyday questions.
+
+RULES:
+- Never pretend to know something you're unsure about — say so plainly.
+- If information may be outdated, mention that clearly.
+- Never invent facts, sources, links, or data.
+- For medical, legal, or financial questions, give general educational information and encourage consulting a qualified professional.
+- Never provide dangerous, illegal, or harmful instructions.
+- Respect privacy — never request unnecessary personal information.
+- Always try to understand the user's intent before answering; ask for clarification if a question is unclear.`;
+
+const UI_TEXT = {
+  fr: {
+    tagline: "Ton compagnon intelligent pour la tech et le quotidien",
+    emptyTitle: "Bonjour ! Je suis Cyber-Bot 🤖",
+    emptySub: "Pose-moi une question sur la programmation, l'électronique, les sciences, ou n'importe quel sujet du quotidien.",
+    placeholder: "Écris ton message...",
+    footnote: "Cyber-Bot peut faire des erreurs. Vérifie les informations importantes.",
+    chips: ["Explique-moi les microcontrôleurs", "Aide-moi à déboguer du code", "Idées de projet électronique"],
+    errorMsg: "Oups, une erreur est survenue. Réessaie dans un instant. ⚠️"
+  },
+  en: {
+    tagline: "Your intelligent companion for tech and everyday life",
+    emptyTitle: "Hello! I'm Cyber-Bot 🤖",
+    emptySub: "Ask me about programming, electronics, science, or anything else on your mind.",
+    placeholder: "Type your message...",
+    footnote: "Cyber-Bot can make mistakes. Check important information.",
+    chips: ["Explain microcontrollers", "Help me debug some code", "Electronics project ideas"],
+    errorMsg: "Oops, something went wrong. Please try again in a moment. ⚠️"
+  },
+  ar: {
+    tagline: "رفيقك الذكي للتكنولوجيا والحياة اليومية",
+    emptyTitle: "أهلاً! أنا سايبر-بوت 🤖",
+    emptySub: "اسألني عن البرمجة، الإلكترونيك، العلوم، أو أي موضوع يخطر ببالك.",
+    placeholder: "اكتب رسالتك...",
+    footnote: "قد يخطئ سايبر-بوت. تحقق من المعلومات المهمة.",
+    chips: ["اشرحلي المتحكمات الدقيقة", "ساعدني نصلّح كود", "أفكار مشاريع إلكترونيك"],
+    errorMsg: "عذراً، حصل خطأ. حاول مرة أخرى بعد قليل. ⚠️"
+  }
+};
+
+let currentLang = 'fr';
+let history = [];
+let isStreaming = false;
+
+const thread = document.getElementById('thread');
+const emptyState = document.getElementById('emptyState');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+const main = document.getElementById('main');
+const chipsEl = document.getElementById('chips');
+
+function applyLang(lang){
+  currentLang = lang;
+  const t = UI_TEXT[lang];
+  document.getElementById('tagline').textContent = t.tagline;
+  document.getElementById('emptyTitle').textContent = t.emptyTitle;
+  document.getElementById('emptySub').textContent = t.emptySub;
+  document.getElementById('footnote').textContent = t.footnote;
+  input.placeholder = t.placeholder;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  chipsEl.innerHTML = '';
+  t.chips.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = c;
+    btn.onclick = () => { input.value = c; sendMessage(); };
+    chipsEl.appendChild(btn);
+  });
+  document.querySelectorAll('.lang-select button').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+}
+
+document.getElementById('langSelect').addEventListener('click', (e) => {
+  if(e.target.tagName === 'BUTTON'){
+    applyLang(e.target.dataset.lang);
+  }
+});
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatContent(text){
+  let escaped = escapeHtml(text);
+  escaped = escaped.replace(/```([\s\S]*?)```/g, (m, code) => `<pre><code>${code.trim()}</code></pre>`);
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  return escaped;
+}
+
+function addMessage(role, text){
+  if(emptyState) emptyState.style.display = 'none';
+  const msg = document.createElement('div');
+  msg.className = `msg ${role === 'user' ? 'user' : 'bot'}`;
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = role === 'user' ? '🙂' : '🤖';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = formatContent(text);
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  thread.appendChild(msg);
+  main.scrollTop = main.scrollHeight;
+  return bubble;
+}
+
+function addTyping(){
+  const msg = document.createElement('div');
+  msg.className = 'msg bot';
+  msg.id = 'typingMsg';
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = '🤖';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  thread.appendChild(msg);
+  main.scrollTop = main.scrollHeight;
+}
+
+function removeTyping(){
+  const t = document.getElementById('typingMsg');
+  if(t) t.remove();
+}
+
+async function sendMessage(){
+  const text = input.value.trim();
+  if(!text || isStreaming) return;
+
+  addMessage('user', text);
+  history.push({ role: 'user', content: text });
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  isStreaming = true;
+  addTyping();
+
+  try{
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text
+      })
+    });
+
+    const data = await response.json();
+    if(!response.ok){
+      throw new Error(data.response || `Request failed with status ${response.status}`);
+    }
+    removeTyping();
+
+    const replyText = (data.response || '').trim();
+
+    if(!replyText){
+      throw new Error('empty response');
+    }
+
+    addMessage('bot', replyText);
+    history.push({ role: 'assistant', content: replyText });
+
+  } catch(err){
+    removeTyping();
+    const bubble = addMessage('bot', UI_TEXT[currentLang].errorMsg);
+    bubble.classList.add('error-bubble');
+    console.error('Cyber-Bot error:', err);
+  } finally {
+    isStreaming = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+sendBtn.addEventListener('click', sendMessage);
+input.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+});
+
+applyLang('fr');
+</script>
+
+</body>
+</html>
